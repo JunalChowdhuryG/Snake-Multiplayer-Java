@@ -22,11 +22,15 @@ public class SnakeClient {
             }
         }
 
-        try (Socket socket = new Socket(host, port);
-             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+        try {
+            // Set terminal to raw mode
+            executeSttyCommand("-echo -cbreak");
 
-            System.out.println("Connected to Snake server. Use w,a,s,d and Enter to move. Type 'quit' to exit.");
+            try (Socket socket = new Socket(host, port);
+                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                 BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+
+                System.out.println("Connected to Snake server. Use w,a,s,d to move. Type 'q' to quit.");
 
             // Thread to read from server and print to console
             Thread serverListener = new Thread(() -> {
@@ -48,12 +52,13 @@ public class SnakeClient {
             });
             serverListener.start();
 
-            // Main thread reads from console and sends to server
-            BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
-            String fromUser;
-            while (serverListener.isAlive() && (fromUser = stdIn.readLine()) != null) {
-                out.println(fromUser);
-                if (fromUser.equalsIgnoreCase("quit")) {
+            // Main thread reads single chars from console and sends to server
+            InputStreamReader consoleReader = new InputStreamReader(System.in);
+            int fromUser;
+            while (serverListener.isAlive() && (fromUser = consoleReader.read()) != -1) {
+                char charFromUser = (char) fromUser;
+                out.println(charFromUser);
+                if (charFromUser == 'q') {
                     break;
                 }
             }
@@ -68,12 +73,29 @@ public class SnakeClient {
             // If we break the loop, close the client
             System.exit(0);
 
+            }
         } catch (UnknownHostException e) {
             System.err.println("Don't know about host " + host);
             System.exit(1);
         } catch (IOException e) {
             System.err.println("Couldn't get I/O for the connection to " + host);
             System.exit(1);
+        } finally {
+            // Restore terminal settings
+            executeSttyCommand("echo cbreak");
+        }
+    }
+
+    private static void executeSttyCommand(String args) {
+        try {
+            String[] cmd = {"/bin/sh", "-c", "stty " + args + " < /dev/tty"};
+            Process p = Runtime.getRuntime().exec(cmd);
+            p.waitFor();
+            if (p.exitValue() != 0) {
+                System.err.println("Warning: stty command failed. This may not work on your system.");
+            }
+        } catch (IOException | InterruptedException e) {
+            System.err.println("Warning: Failed to execute stty command.");
         }
     }
 }

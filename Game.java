@@ -10,15 +10,13 @@ public class Game implements Runnable {
     private final List<Snake> snakes = new CopyOnWriteArrayList<>();
     private volatile boolean running = false;
     private final List<PlayerHandler> players;
-    private int currentLevel;
-    private int gameSpeed;
-    private static final int LEVEL_UP_SCORE_THRESHOLD = 50;
+    private static final int BOARD_WIDTH = 80;
+    private static final int BOARD_HEIGHT = 20;
+    private static final int GAME_SPEED = 200;
 
     public Game(List<PlayerHandler> players) {
         this.players = players;
-        this.currentLevel = 1;
-        this.gameSpeed = 250; // Slower start
-        this.board = new Board(this.currentLevel);
+        this.board = new Board(BOARD_WIDTH, BOARD_HEIGHT);
     }
 
     public synchronized void addNewPlayer(PlayerHandler player) {
@@ -66,7 +64,7 @@ public class Game implements Runnable {
             tick();
             broadcastGameState();
             try {
-                Thread.sleep(gameSpeed);
+                Thread.sleep(GAME_SPEED);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 running = false;
@@ -147,47 +145,8 @@ public class Game implements Runnable {
             }
             snakes.remove(snake);
         }
-
-        checkLevelUp();
     }
 
-    private void checkLevelUp() {
-        int totalScore = 0;
-        for (Snake snake : snakes) {
-            totalScore += snake.getScore();
-        }
-
-        if (totalScore >= (currentLevel * LEVEL_UP_SCORE_THRESHOLD)) {
-            nextLevel();
-        }
-    }
-
-    private void nextLevel() {
-        currentLevel++;
-        if (currentLevel > Board.getMaxLevels()) {
-            broadcastMessage("YOU WIN! All levels completed!");
-            running = false;
-            return;
-        }
-
-        broadcastMessage("LEVEL UP! Welcome to Level " + currentLevel);
-        gameSpeed *= 0.8; // Increase speed by 20%
-        board = new Board(currentLevel);
-
-        // Reset all snakes to new positions
-        List<Point> spawnPoints = board.getSafeSpawnPoints();
-        Collections.shuffle(spawnPoints);
-
-        for (int i = 0; i < snakes.size(); i++) {
-            if (i < spawnPoints.size()) {
-                Point p = spawnPoints.get(i);
-                snakes.get(i).reset(p.x, p.y);
-            } else {
-                // Not enough spawn points, remove extra snakes (should not happen with good level design)
-                removeSnake(snakes.get(i));
-            }
-        }
-    }
 
     private void broadcastMessage(String message) {
         for (PlayerHandler player : players) {
@@ -223,7 +182,7 @@ public class Game implements Runnable {
 
         StringBuilder sb = new StringBuilder();
         sb.append("\033[H\033[2J");
-        sb.append("--- Snake vs Snakes --- Level: ").append(currentLevel).append(" ---\n");
+        sb.append("--- Snake vs Snakes ---\n");
         for (int i = 0; i < board.getHeight(); i++) {
             sb.append(new String(tempGrid[i])).append("\n");
         }
@@ -233,16 +192,13 @@ public class Game implements Runnable {
         sortedSnakes.sort((s1, s2) -> Integer.compare(s2.getScore(), s1.getScore()));
 
         int rank = 1;
-        int totalScore = 0;
         for (Snake snake : sortedSnakes) {
             if (rank <= 3) {
                 sb.append(rank).append(". Player '").append(snake.getBodyChar()).append("': ").append(snake.getScore()).append("\n");
             }
             rank++;
-            totalScore += snake.getScore();
         }
         sb.append("--------------------\n");
-        sb.append("Level Up In: ").append(Math.max(0, (currentLevel * LEVEL_UP_SCORE_THRESHOLD) - totalScore)).append(" points\n");
 
         return sb.toString();
     }

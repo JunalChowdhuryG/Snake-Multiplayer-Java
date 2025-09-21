@@ -118,6 +118,11 @@ public class Board {
         LEVELS.add(LEVEL_4_MAP);
     }
 
+    public Board(int width, int height) {
+        generateBoard(width, height);
+        placeFruit();
+    }
+
     public Board(int level) {
         initBoard(level);
     }
@@ -131,6 +136,22 @@ public class Board {
             this.grid[i] = map[i].toCharArray();
         }
         placeFruit();
+    }
+
+    private void generateBoard(int width, int height) {
+        this.width = width;
+        this.height = height;
+        this.grid = new char[height][width];
+
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                if (i == 0 || i == height - 1 || j == 0 || j == width - 1) {
+                    grid[i][j] = '#';
+                } else {
+                    grid[i][j] = ' ';
+                }
+            }
+        }
     }
 
     public List<Point> getSafeSpawnPoints() {
